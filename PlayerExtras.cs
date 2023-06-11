@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace Controller
+namespace Controller.Player
 {
 
     public struct FrameInput
@@ -8,22 +8,21 @@ namespace Controller
         public float X, Y;
         public bool JumpDown;
         public bool JumpUp;
+
+        public bool Boost { get; internal set; }
+        public bool Climb { get; internal set; }
     }
 
     public interface IPlayerController
     {
-        public Vector3 Velocity { get; }
+        public Vector3 Velocidad { get; }
         public FrameInput Input { get; }
-        public bool JumpingThisFrame { get; }
-        public bool LandingThisFrame { get; }
+        public bool SaltandoFrame { get; }
+        public bool AterrizandoFrame { get; }
+        public bool BoostingFrame { get; }
+        public bool DeadFrame { get; set; }
         public Vector3 RawMovement { get; }
-        public bool Grounded { get; }
-    }
-
-    public interface IExtendedPlayerController : IPlayerController
-    {
-        public bool DoubleJumpingThisFrame { get; set; }
-        public bool Dashing { get; set; }
+        public bool EnElPiso { get; }
     }
 
     public struct RayRange

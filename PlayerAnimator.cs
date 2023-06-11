@@ -1,7 +1,7 @@
 using UnityEngine;
 using Random = UnityEngine.Random;
 
-namespace Controller
+namespace Controller.Player
 {
     /// <summary>
     /// This is a pretty filthy script. I was just arbitrarily adding to it as I went.
@@ -10,94 +10,112 @@ namespace Controller
     /// </summary>
     public class PlayerAnimator : MonoBehaviour
     {
-        [SerializeField] private Animator animator;
-        [SerializeField] private AudioSource source;
-        [SerializeField] private LayerMask groundMask;
-        [SerializeField] private ParticleSystem jumpParticles, launchParticles;
-        [SerializeField] private ParticleSystem moveParticles, landParticles;
-        [SerializeField] private AudioClip[] footsteps;
+        [SerializeField] private Animator Animador;
+        [SerializeField] private Transform Sprite;
+        [SerializeField] private AudioSource FuenteAudio;
+        [SerializeField] private LayerMask QueEsSuelo;
+        [SerializeField] private ParticleSystem PartSalto, PartDespegue;
+        [SerializeField] private ParticleSystem PartMovimiento, PartAtterizaje;
+        [SerializeField] private AudioClip[] pisada;
         [SerializeField] private float _maxTilt = .1f;
         [SerializeField] private float _tiltSpeed = 1;
-        [SerializeField, Range(1f, 3f)] private float maxIdleSpeed = 2;
-        [SerializeField] private float maxParticleFallSpeed = -40;
+        [SerializeField, Range(1f, 3f)] private float VelMaxInactivo = 2;
+        [SerializeField] private float PartMaxVelCaida = -40;
 
-        private IPlayerController player;
-        private bool isPlayerGrounded;
+        private IPlayerController Jugador;
+        private bool EstaEnElPiso;
         private ParticleSystem.MinMaxGradient currentGradient;
-        private Vector2 movement;
+        private Vector2 Movimiento;
 
-        void Awake() => player = GetComponentInParent<IPlayerController>();
+        
+
+        void Awake() => Jugador = GetComponentInParent<IPlayerController>();
 
         void Update()
         {
-            if (player == null) return;
+            if (Jugador == null) return;
 
-            // Flip the sprite
-            if (player.Input.X != 0) transform.localScale = new Vector3(player.Input.X > 0 ? 1 : -1, 1, 1);
-
-            // Lean while running
-            var targetRotVector = new Vector3(0, 0, Mathf.Lerp(-_maxTilt, _maxTilt, Mathf.InverseLerp(-1, 1, player.Input.X)));
-            animator.transform.rotation = Quaternion.RotateTowards(animator.transform.rotation, Quaternion.Euler(targetRotVector), _tiltSpeed * Time.deltaTime);
-
-            // Speed up idle while running
-            animator.SetFloat(IdleSpeedKey, Mathf.Lerp(1, maxIdleSpeed, Mathf.Abs(player.Input.X)));
-
-            // Splat
-            if (player.LandingThisFrame)
+            // Da vuelta al sprite del jugador
+            
+            if (Jugador.Input.X != 0)
             {
-                animator.SetTrigger(GroundedKey);
-                source.PlayOneShot(footsteps[Random.Range(0, footsteps.Length)]);
+                Sprite.localScale = new Vector3(Jugador.Input.X,1,1);
             }
 
-            // Jump effects
-            if (player.JumpingThisFrame)
-            {
-                animator.SetTrigger(JumpKey);
-                animator.ResetTrigger(GroundedKey);
 
-                // Only play particles when grounded (avoid coyote)
-                if (player.Grounded)
+            // Se inclina al correr
+            var targetRotVector = new Vector3(0, 0, Mathf.Lerp(-_maxTilt, _maxTilt, Mathf.InverseLerp(-1, 1, Jugador.Input.X)));
+            Animador.transform.rotation = Quaternion.RotateTowards(Animador.transform.rotation, Quaternion.Euler(targetRotVector), _tiltSpeed * Time.deltaTime);
+
+            // Acelera la velocidad a la animacion de inativo meintras corre
+            Animador.SetFloat(IdleSpeedKey, Mathf.Lerp(1, VelMaxInactivo, Mathf.Abs(Jugador.Input.X)));
+
+            // suena splat
+            if (Jugador.AterrizandoFrame)
+            {
+                Animador.SetTrigger(GroundedKey);
+                FuenteAudio.PlayOneShot(pisada[Random.Range(0, pisada.Length)]);
+            }
+            //Efecto de boost
+            if (Jugador.BoostingFrame)
+            {
+                Animador.SetTrigger(BoostKey);
+                FuenteAudio.PlayOneShot(pisada[Random.Range(0, pisada.Length)]);
+            }
+            if (Jugador.DeadFrame)
+            {
+                Animador.SetTrigger(DeadKey);
+                FuenteAudio.PlayOneShot(pisada[Random.Range(0, pisada.Length)]);
+            }
+            // Efectos de salto
+            if (Jugador.SaltandoFrame)
+            {
+                Animador.SetTrigger(JumpKey);
+                Animador.ResetTrigger(GroundedKey);
+
+                // Despliega particulas cuando el jugador esta en el piso y desactiva cuando esta en coyote time
+                if (Jugador.EnElPiso)
                 {
-                    SetColor(jumpParticles);
-                    SetColor(launchParticles);
-                    jumpParticles.Play();
+                    SetColor(PartSalto);
+                    SetColor(PartDespegue);
+                    PartSalto.Play();
                 }
             }
 
-            // Play landing effects and begin ground movement effects
-            if (!isPlayerGrounded && player.Grounded)
+            // reproduce efectos de aterrizaje y vuelve a efectos del piso
+            if (!EstaEnElPiso && Jugador.EnElPiso)
             {
-                isPlayerGrounded = true;
-                moveParticles.Play();
-                landParticles.transform.localScale = Vector3.one * Mathf.InverseLerp(0, maxParticleFallSpeed, movement.y);
-                SetColor(landParticles);
-                landParticles.Play();
+                EstaEnElPiso = true;
+                PartMovimiento.Play();
+                PartAtterizaje.transform.localScale = Vector3.one * Mathf.InverseLerp(0, PartMaxVelCaida, Movimiento.y);
+                SetColor(PartAtterizaje);
+                PartAtterizaje.Play();
             }
-            else if (isPlayerGrounded && !player.Grounded)
+            else if (EstaEnElPiso && !Jugador.EnElPiso)
             {
-                isPlayerGrounded = false;
-                moveParticles.Stop();
+                EstaEnElPiso = false;
+                PartMovimiento.Stop();
             }
 
-            // Detect ground color
-            var groundHit = Physics2D.Raycast(transform.position, Vector3.down, 2, groundMask);
+            // Detecta el color del suelo
+            var groundHit = Physics2D.Raycast(transform.position, Vector3.down, 2, QueEsSuelo);
             if (groundHit && groundHit.transform.TryGetComponent(out SpriteRenderer r))
             {
                 currentGradient = new ParticleSystem.MinMaxGradient(r.color * 0.9f, r.color * 1.2f);
-                SetColor(moveParticles);
+                SetColor(PartMovimiento);
             }
 
-            movement = player.RawMovement; // Previous frame movement is more valuable
+            Movimiento = Jugador.RawMovement; // se guarda frames anteriores ya que son valiosos
         }
 
         private void OnDisable()
         {
-            moveParticles.Stop();
+            PartMovimiento.Stop();
         }
 
         private void OnEnable()
         {
-            moveParticles.Play();
+            PartMovimiento.Play();
         }
 
         void SetColor(ParticleSystem ps)
@@ -106,11 +124,14 @@ namespace Controller
             main.startColor = currentGradient;
         }
 
+
         #region Animation Keys
 
         private static readonly int GroundedKey = Animator.StringToHash("Grounded");
         private static readonly int IdleSpeedKey = Animator.StringToHash("IdleSpeed");
         private static readonly int JumpKey = Animator.StringToHash("Jump");
+        private static readonly int BoostKey = Animator.StringToHash("Booster");
+        private static readonly int DeadKey = Animator.StringToHash("Death");
 
         #endregion
     }
